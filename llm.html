@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title> AI – PDF Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gradient-to-r from-indigo-100 to-purple-100 flex flex-col items-center min-h-screen p-6">
+  <div class="w-full max-w-3xl bg-white shadow-lg rounded-2xl p-6 mt-10">
+    <h1 class="text-3xl font-bold text-indigo-600 text-center mb-6">💬 Assistant (PDF + LLM)</h1>
+
+    <div class="flex justify-between items-center mb-6">
+      <input type="file" id="pdfUpload" class="border p-2 rounded-lg w-2/3">
+      <button onclick="uploadPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg">Upload</button>
+    </div>
+
+    <div id="chatBox" class="h-96 overflow-y-auto border rounded-lg p-4 bg-gray-50 mb-4"></div>
+
+    <div class="flex gap-2">
+      <input id="questionInput" type="text" placeholder="Ask your question..." class="flex-1 border rounded-lg p-3 focus:ring-2 focus:ring-indigo-500">
+      <button onclick="askQuestion()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg">Ask</button>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8000";
+
+    async function uploadPDF() {
+      const fileInput = document.getElementById("pdfUpload");
+      if (!fileInput.files.length) return alert("Please choose a PDF.");
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      const res = await fetch(`${API_BASE}/upload_pdf/`, { method: "POST", body: formData });
+      const data = await res.json();
+      alert(data.message);
+    }
+
+    async function askQuestion() {
+      const input = document.getElementById("questionInput");
+      const chatBox = document.getElementById("chatBox");
+      const question = input.value.trim();
+      if (!question) return;
+      chatBox.innerHTML += `<div class='text-blue-700 mb-2'><b>You:</b> ${question}</div>`;
+      input.value = "";
+
+      const res = await fetch(`${API_BASE}/ask/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question })
+      });
+      const data = await res.json();
+      chatBox.innerHTML += `<div class='text-gray-800 mb-4'><b>🤖 AI:</b> ${data.answer}</div>`;
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  </script>
+</body>
+</html>
