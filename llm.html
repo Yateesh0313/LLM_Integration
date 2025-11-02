@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI – PDF Chat</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: "Inter", sans-serif;
+    }
+
+    .chat-bubble-user {
+      background: #dbeafe;
+      padding: 10px 14px;
+      border-radius: 16px;
+      max-width: 80%;
+      align-self: flex-end;
+      margin-bottom: 6px;
+    }
+
+    .chat-bubble-ai {
+      background: #f3f4f6;
+      padding: 10px 14px;
+      border-radius: 16px;
+      max-width: 80%;
+      align-self: flex-start;
+      margin-bottom: 12px;
+      border-left: 4px solid #6366f1;
+    }
+
+    .fade-in {
+      animation: fadeIn 0.35s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(5px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+
+<body class="bg-gradient-to-br from-indigo-200 via-purple-200 to-pink-200 flex justify-center min-h-screen p-6">
+
+  <div class="w-full max-w-3xl backdrop-blur-xl bg-white/75 shadow-2xl rounded-2xl p-6 flex flex-col h-[90vh]">
+
+    <h1 class="text-3xl font-bold text-indigo-700 text-center mb-4">💬 AI PDF + Chat Assistant</h1>
+    <p class="text-center text-gray-600 mb-4">Ask questions from PDF or general knowledge!</p>
+
+    <div class="flex justify-between items-center mb-4">
+      <input type="file" id="pdfUpload" class="border p-2 rounded-lg w-2/3 bg-white shadow-sm">
+      <button onclick="uploadPDF()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-md transition">
+        Upload PDF
+      </button>
+    </div>
+
+    <div id="chatBox" class="flex flex-col h-full overflow-y-auto border rounded-lg p-4 bg-gray-50 shadow-inner"></div>
+
+    <div class="flex gap-2 mt-4">
+      <input id="questionInput" type="text" placeholder="Ask your question..." 
+        class="flex-1 border rounded-lg p-3 shadow-sm focus:ring-2 focus:ring-indigo-400 bg-white">
+      <button onclick="askQuestion()" 
+        class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow-md transition">
+        Send
+      </button>
+    </div>
+  </div>
+
+
+  <script>
+    const API_BASE = "http://127.0.0.1:8000";
+
+    async function uploadPDF() {
+      const fileInput = document.getElementById("pdfUpload");
+      if (!fileInput.files.length) return alert("Please choose a PDF.");
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+      const res = await fetch(`${API_BASE}/upload_pdf/`, { method: "POST", body: formData });
+      const data = await res.json();
+      alert(data.message);
+    }
+
+    async function askQuestion() {
+      const input = document.getElementById("questionInput");
+      const chatBox = document.getElementById("chatBox");
+      const question = input.value.trim();
+      if (!question) return;
+
+      chatBox.innerHTML += `<div class='chat-bubble-user fade-in'><b>You:</b> ${question}</div>`;
+      input.value = "";
+
+      const res = await fetch(`${API_BASE}/ask/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question })
+      });
+
+      const data = await res.json();
+      chatBox.innerHTML += `<div class='chat-bubble-ai fade-in'><b>🤖 AI:</b> ${data.answer}</div>`;
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+  </script>
+
+</body>
+</html>
