@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+langchain
+langchain-openai
+langchain-community
+langchain-text-splitters
+langchain-huggingface
+pdfplumber
+faiss-cpu
+sentence-transformers
+fpdf

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI – PDF Chat Assistant</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    body { font-family: "Inter", sans-serif; }
+
+    .chat-bubble-user {
+      background: #dbeafe;
+      padding: 10px 14px;
+      border-radius: 14px;
+      max-width: 75%;
+      align-self: flex-end;
+      margin-bottom: 6px;
+    }
+
+    .chat-bubble-ai {
+      background: #f3f4f6;
+      padding: 10px 14px;
+      border-radius: 14px;
+      max-width: 75%;
+      align-self: flex-start;
+      border-left: 4px solid #6366f1;
+      margin-bottom: 12px;
+    }
+
+    .fade-in { animation: fadeIn .35s ease-in-out; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
+</head>
+
+<body class="bg-indigo-200 min-h-screen flex justify-center p-6">
+
+  <div class="w-full max-w-3xl bg-white/80 shadow-2xl rounded-2xl p-6 flex flex-col h-[90vh]">
+
+    <h1 class="text-3xl font-bold text-indigo-700 text-center mb-4">
+      💬 AI PDF Chat Assistant
+    </h1>
+
+    <!-- PDF Upload -->
+    <div class="flex gap-2 mb-3">
+      <input type="file" id="pdfUpload"
+        class="border p-2 rounded-lg flex-1 bg-white shadow-sm">
+      <button onclick="uploadPDF()"
+        class="bg-indigo-600 text-white px-4 py-2 rounded-lg">
+        Upload PDF
+      </button>
+    </div>
+
+    <!-- Controls -->
+    <div class="flex justify-between mb-3">
+      <button onclick="downloadChatPDF()"
+        class="bg-green-600 text-white px-4 py-2 rounded-lg">
+        ⬇️ Download Chat
+      </button>
+
+      <button id="voiceToggleBtn" onclick="toggleVoiceOutput()"
+        class="bg-purple-600 text-white px-4 py-2 rounded-lg">
+        🔊 Voice Output: ON
+      </button>
+
+      <button onclick="replayVoice()"
+        class="bg-orange-500 text-white px-4 py-2 rounded-lg">
+        🔁 Replay Voice
+      </button>
+    </div>
+
+    <!-- Chat Box -->
+    <div id="chatBox"
+      class="flex flex-col h-full overflow-y-auto border bg-gray-50 p-4 rounded-lg shadow-inner">
+    </div>
+
+    <!-- Bottom Input -->
+    <div class="flex gap-2 mt-4">
+      <input id="questionInput" type="text" placeholder="Ask your question..."
+        class="flex-1 border rounded-lg p-3 bg-white shadow-sm">
+
+      <button onclick="askQuestion()"
+        class="bg-indigo-600 text-white px-4 py-2 rounded-lg">
+        Send
+      </button>
+    </div>
+  </div>
+
+<!-- ===================== SCRIPT ===================== -->
+<script>
+const API_BASE = "http://localhost:8000";
+
+let voiceOutputEnabled = true;
+let lastAnswer = "";   // stores last AI answer for replay
+
+// Upload PDF
+async function uploadPDF() {
+  const f = document.getElementById("pdfUpload");
+  if (!f.files.length) return alert("Choose a PDF");
+
+  const fd = new FormData();
+  fd.append("file", f.files[0]);
+
+  const res = await fetch(`${API_BASE}/upload_pdf/`, {
+    method: "POST",
+    body: fd
+  });
+
+  alert((await res.json()).message);
+}
+
+// Ask Question
+async function askQuestion() {
+  const input = document.getElementById("questionInput");
+  const q = input.value.trim();
+  if (!q) return;
+
+  const chatBox = document.getElementById("chatBox");
+  chatBox.innerHTML += `<div class="chat-bubble-user fade-in"><b>You:</b> ${q}</div>`;
+  input.value = "";
+
+  const res = await fetch(`${API_BASE}/ask/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question: q })
+  });
+
+  const data = await res.json();
+  lastAnswer = data.answer;   // store latest answer
+
+  chatBox.innerHTML += `<div class="chat-bubble-ai fade-in"><b>🤖 AI:</b> ${data.answer}</div>`;
+  chatBox.scrollTop = chatBox.scrollHeight;
+
+  // Auto speak only if ON
+  if (voiceOutputEnabled) speakText(data.answer);
+}
+
+// Download PDF
+function downloadChatPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF();
+  let y = 15;
+
+  document.querySelectorAll(".chat-bubble-user, .chat-bubble-ai").forEach(msg => {
+    const lines = doc.splitTextToSize(msg.innerText, 180);
+
+    if (y + lines.length * 8 > 280) {
+      doc.addPage();
+      y = 15;
+    }
+
+    doc.text(lines, 10, y);
+    y += lines.length * 8 + 6;
+  });
+
+  doc.save("Chat.pdf");
+}
+
+// Voice Output
+function speakText(text) {
+  if (!voiceOutputEnabled) {
+    speechSynthesis.cancel();
+    return;
+  }
+
+  speechSynthesis.cancel();
+
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = "en-US";
+  u.rate = 1;
+
+  speechSynthesis.speak(u);
+}
+
+// 🔁 Replay last answer anytime
+function replayVoice() {
+  if (!lastAnswer) return alert("No answer to replay yet!");
+
+  // Replay ignores ON/OFF, ALWAYS plays
+  speechSynthesis.cancel();
+
+  const u = new SpeechSynthesisUtterance(lastAnswer);
+  u.lang = "en-US";
+  u.rate = 1;
+
+  speechSynthesis.speak(u);
+}
+
+// Toggle Voice Output
+function toggleVoiceOutput() {
+  voiceOutputEnabled = !voiceOutputEnabled;
+
+  if (!voiceOutputEnabled) speechSynthesis.cancel();
+
+  document.getElementById("voiceToggleBtn").textContent =
+    voiceOutputEnabled ? "🔊 Voice Output: ON" : "🔇 Voice Output: OFF";
+}
+</script>
+
+</body>
+</html>
